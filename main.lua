@@ -3,8 +3,10 @@ local curses = require("curses")
 local stdscr = curses.initscr()
 
 local room_size_goal = {
-	width = curses.cols() / 10,
-	height = curses.lines() / 5,
+	width = 20,
+	height = 8,
+	min_size = 8,
+	padding = 1,
 }
 local game = {
 	height = curses.lines(),
@@ -12,57 +14,68 @@ local game = {
 	seed = 1337 * os.time(),
 	room_size_goal = room_size_goal,
 }
-print(inspect(game))
 
 math.randomseed(tonumber(game.seed))
 
 -- TreeNode
--- xy: { x, y }
+-- x: 0
+-- y: 0
 -- height: number
 -- width: number
 -- children: { TreeNode, TreeNode }
 local bsp_tree = {
-	xy = { 1, 1 },
-	height = game.height - 2,
-	width = game.width - 2,
+	x = 0,
+	y = 0,
+	height = game.height - 0,
+	width = game.width - 0,
 	children = {},
 }
 
-local rooms = { bsp_tree }
-
-local function partition(node, verticalOverride)
+local function make_partition(node, verticalOverride)
 	local vertical = verticalOverride ~= nil and verticalOverride or math.random() > 0.5
 	local val = vertical and node.width or node.height
-	local margin = val / 100 * 10
-	local split = math.floor(math.random((val / 2) - margin, (val / 2) + margin))
+	local margin = val / 100 * 10 -- 10% of the height or width
+	local split = math.floor(math.random((val / 2) - margin, (val / 2) + margin)) -- split roughly halfway, plus or minus the 10% margin
 
-	local gap = 0
+	local gap = game.room_size_goal.padding
 	local child1 = vertical
 			and {
-				xy = { node.xy[1], node.xy[2] },
+				x = node.x,
+				y = node.y,
 				width = split - gap,
 				height = node.height,
 				children = {},
+				rooms = {},
+				parent = node,
 			}
 		or {
-			xy = { node.xy[1], node.xy[2] },
+			x = node.x,
+			y = node.y,
 			width = node.width,
 			height = split - gap,
 			children = {},
+			rooms = {},
+			parent = node,
 		}
 
 	local child2 = vertical
 			and {
-				xy = { node.xy[1] + split + gap, node.xy[2] },
+				x = node.x + split + gap,
+				y = node.y,
 				width = node.width - (split + gap),
 				height = node.height,
 				children = {},
+				rooms = {},
+				parent = node,
 			}
 		or {
-			xy = { node.xy[1], node.xy[2] + split + gap },
+			x = node.x,
+			y = node.y + split + gap,
 			width = node.width,
 			height = node.height - (split + gap),
 			children = {},
+			rooms = {},
+			parent = node,
 		}
 
 	if
@@ -71,34 +84,52 @@ local function partition(node, verticalOverride)
 		and child2.width >= game.room_size_goal.width
 		and child2.height >= game.room_size_goal.height
 	then
-		partition(child1)
+		make_partition(child1)
 		table.insert(node.children, child1)
-		table.insert(rooms, child1)
 
-		partition(child2)
+		make_partition(child2)
 		table.insert(node.children, child2)
-		table.insert(rooms, child2)
 	elseif verticalOverride == nil then
-		partition(node, not vertical)
+		-- If the halfs are too small, try splitting in the other orientation
+		make_partition(node, not vertical)
 	end
 end
 
-partition(bsp_tree)
+make_partition(bsp_tree)
 
-local leafs = {}
-
-for _, room in ipairs(rooms) do
-	if #room.children == 0 then
-		table.insert(leafs, room)
+local function find_leafs(node, list)
+	local l = list ~= nil and list or {}
+	if #node.children == 0 then
+		table.insert(l, node)
+	else
+		for _, child in ipairs(node.children) do
+			find_leafs(child, l)
+		end
 	end
+	return l
 end
 
-print(#leafs)
--- print(inspect(leafs))
+local leafs = find_leafs(bsp_tree)
 
-local draw_room = 1
+local rooms = {}
 
-local function main()
+for _, leaf in ipairs(leafs) do
+	local height = math.random(game.room_size_goal.min_size, leaf.height)
+	local width = math.random(game.room_size_goal.min_size, leaf.width)
+	local x = math.random(leaf.x, leaf.x + (leaf.width - width))
+	local y = math.random(leaf.y, leaf.y + (leaf.height - height))
+	local room = {
+		x = x,
+		y = y,
+		height = height,
+		width = width,
+	}
+	table.insert(leaf.rooms, room)
+	table.insert(rooms, room)
+end
+
+local function draw()
+	local nodes = rooms
 	local run = true
 
 	while run do
@@ -106,28 +137,20 @@ local function main()
 
 		for x = 0, game.width do
 			for y = 0, game.height do
-				local room_index = 0
-				for _, room in ipairs(leafs) do
-					room_index = room_index + 1
-					-- if room_index == draw_room then
-					-- print(inspect(room))
-					local isWallX = (x >= room.xy[1] and x <= room.xy[1] + room.width - 1)
-						and (y == room.xy[2] or y == room.xy[2] + room.height - 1)
-					local isWallY = (y >= room.xy[2] and y <= room.xy[2] + room.height - 1)
-						and (x == room.xy[1] or x == room.xy[1] + room.width - 1)
-					local isFloor = (x > room.xy[1] and x < room.xy[1] + room.width - 1)
-						and (y > room.xy[2] and y < room.xy[2] + room.height - 1)
+				for _, room in ipairs(nodes) do
+					local isWallX = (x >= room.x and x <= room.x + room.width - 1)
+						and (y == room.y or y == room.y + room.height - 1)
+					local isWallY = (y >= room.y and y <= room.y + room.height - 1)
+						and (x == room.x or x == room.x + room.width - 1)
+					local isFloor = (x > room.x and x < room.x + room.width - 1)
+						and (y > room.y and y < room.y + room.height - 1)
 					local char = (isWallX or isWallY) and "#" or ""
 					if isFloor then
-						char = "." --string.char(room_index + 97) --"."
-					end
-					if (x == 0 or x == game.width - 1) and (y == 0 or y == game.height - 1) then
-						char = "x"
+						char = string.char(_ + 96) --"."
 					end
 					if char ~= "" then
 						stdscr:mvaddstr(y, x, char)
 					end
-					-- end
 				end
 			end
 		end
@@ -139,13 +162,16 @@ local function main()
 		if c == "q" then
 			run = false
 		end
-
-		if c == "a" then
-			draw_room = draw_room + 1
+		if c == "l" then
+			nodes = leafs
+		end
+		if c == "r" then
+			nodes = rooms
 		end
 
 		stdscr:refresh()
 	end
 	curses.endwin()
 end
-main()
+
+draw()
