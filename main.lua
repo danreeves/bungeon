@@ -45,6 +45,7 @@ local TreeNode = class("TreeNode")({
 		self.children = {}
 		self.room = nil
 		self.parent = parent
+		self.doors = {} -- { {x,y}, ...}
 		tn_count = tn_count + 1
 		self._id = tn_count
 	end,
@@ -206,4 +207,4 @@ local function draw()
 	curses.endwin()
 end
 
--- draw()
+draw()
