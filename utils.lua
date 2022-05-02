@@ -216,6 +216,7 @@ local function depth_first_connect(game, node, grid)
 end
 
 local function get_start_and_end(game, tree, grid)
+	local start_time = os.time()
 	local rooms = tree:get_rooms_below()
 	local longest_path = nil
 	local start_and_end = {}
@@ -231,12 +232,18 @@ local function get_start_and_end(game, tree, grid)
 					end
 					return false
 				end
-				local path = luastar:find(game.width, game.height, c1, c2, is_valid_node, true, true)
+				local path = luastar:find(game.width, game.height, c1, c2, is_valid_node, true, false)
 				if longest_path == nil or (path and #path > #longest_path) then
 					longest_path = path
 					start_and_end = { r1, r2 }
 				end
 			end
+			if (os.time() - start_time) > 2 then
+				break
+			end
+		end
+		if (os.time() - start_time) > 2 then
+			break
 		end
 	end
 
