@@ -1,1 +1,6 @@
 # bungeon
+
+
+```
+luajit main.luajit
+```

@@ -1,7 +1,10 @@
 local TreeNode = require("./TreeNode")
-local luastar = require("./lua-star")
+local luastar = require("./vendor/lua-star")
 local contains = require("./contains")
 
+-- Recursivelyt split a node into two randomly sized (but nearly in half)
+-- children either, horizontally or vertically until the splits are below
+-- size threshold defined in the game config
 local function make_partition(game, node, verticalOverride)
 	local vertical = verticalOverride ~= nil and verticalOverride or math.random() > 0.5
 	local val = vertical and node.width or node.height
@@ -31,6 +34,7 @@ local function make_partition(game, node, verticalOverride)
 	end
 end
 
+-- Recurse the tree collecting nodes with no childre
 local function find_leafs(node, list)
 	local l = list ~= nil and list or {}
 	if #node.children == 0 then
@@ -58,7 +62,6 @@ local function get_closest_room(list, room, is_valid_room)
 		if r ~= room and is_valid_room_fn(r) then
 			local c2 = r:get_center()
 			local dist = distance(c1.x, c1.y, c2.x, c2.y)
-			-- TODO check all four corners instead of centers?
 			if dist < closest_dist then
 				closest = r
 				closest_dist = dist
@@ -89,6 +92,10 @@ local function if_none_wall(cell)
 	end
 end
 
+-- Create an a* path from a random point in room 1 to a random point in
+-- room 2. Avoids the edge of the game area and passing through other rooms.
+-- Walk each path turning the cells into floor and then surround them with
+-- walls. Also calculate door positions based on walls passed through.
 local function connect_rooms(game, r1, r2, grid)
 	local start = r1:random_point_inside(2)
 	local goal = r2:random_point_inside(2)
@@ -162,6 +169,13 @@ local function connect_rooms(game, r1, r2, grid)
 	end
 end
 
+-- Recurse the tree and from bottom to top connect rooms. This should ensure
+-- that all rooms are connected. This has four cases:
+-- + node and sibling both have rooms: happy path
+-- + node has room, sibling has none: recuse sibling and find the closest room
+--									  to node room
+-- + the opposite: find the rooms under node and choose the closest to sibling room
+-- + neither have rooms: gets the rooms under both nodes and find the closest two
 local function depth_first_connect(game, node, grid)
 	for _, child in ipairs(node.children) do
 		depth_first_connect(game, child, grid)
@@ -215,6 +229,8 @@ local function depth_first_connect(game, node, grid)
 	end
 end
 
+-- A* path from each room to the others and choose the longest
+-- This is slow and I'm out of time so I'm time capping execution at 2s
 local function get_start_and_end(game, tree, grid)
 	local start_time = os.time()
 	local rooms = tree:get_rooms_below()

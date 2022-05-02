@@ -1,5 +1,8 @@
-local class = require("oops")
+local class = require("./vendor/oops")
 local contains = require("./contains")
+
+-- An overloaded class used for both the BSP Tree and individual rooms
+-- Should be split up and simplified because it does too much right now
 
 local tn_count = 0
 local TreeNode = class("TreeNode")({
@@ -64,6 +67,7 @@ local TreeNode = class("TreeNode")({
 		return contains(self.connections, room)
 	end,
 
+	-- In a BSP Tree each node can only have 0-1 siblings
 	get_sibling = function(self)
 		if self.parent then
 			for _, child in ipairs(self.parent.children) do
@@ -74,6 +78,7 @@ local TreeNode = class("TreeNode")({
 		end
 	end,
 
+	-- Recurse children until you have all rooms below this node
 	get_rooms_below = function(self)
 		local rooms = {}
 		for _, child in ipairs(self.children) do

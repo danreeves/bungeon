@@ -10,7 +10,7 @@ local room_size_goal = {
 	padding = 1,
 }
 local game = {
-	height = 135,
+	height = 35,
 	width = 160,
 	seed = 1337 * os.time(),
 	room_size_goal = room_size_goal,
@@ -28,6 +28,7 @@ utils.make_partition(game, bsp_tree)
 profile.stop("partitioning")
 
 -- Find the leaf nodes and put random sized rooms into them
+-- This would be a good point to insert prefab rooms
 profile.start("creating rooms")
 local leafs = utils.find_leafs(bsp_tree)
 for _, leaf in ipairs(leafs) do
@@ -75,6 +76,8 @@ profile.stop("connecting rooms")
 
 -- Find the longest disance between two rooms and set them
 -- as start and end points
+-- TODO: This gets SLOW with more rooms,
+-- investigate optimisations or other algorithms
 profile.start("finding start and end")
 utils.get_start_and_end(game, bsp_tree, map)
 profile.stop("finding start and end")

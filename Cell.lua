@@ -1,4 +1,4 @@
-local class = require("oops")
+local class = require("./vendor/oops")
 
 local Cell = class({
 	__init = function(self, x, y)
