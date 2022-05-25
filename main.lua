@@ -10,8 +10,8 @@ local room_size_goal = {
 	padding = 1,
 }
 local game = {
-	height = 35,
-	width = 160,
+	height = tonumber(arg[2]) or 35,
+	width = tonumber(arg[1]) or 160,
 	seed = 1337 * os.time(),
 	room_size_goal = room_size_goal,
 }

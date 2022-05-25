@@ -9,7 +9,7 @@ local function make_partition(game, node, verticalOverride)
 	local vertical = verticalOverride ~= nil and verticalOverride or math.random() > 0.5
 	local val = vertical and node.width or node.height
 	local margin = val / 100 * 10 -- 10% of the height or width
-	local split = math.floor(math.random((val / 2) - margin, (val / 2) + margin)) -- split roughly halfway, plus or minus the 10% margin
+	local split = math.floor(math.random(math.floor((val / 2) - margin, (val / 2) + margin))) -- split roughly halfway, plus or minus the 10% margin
 	local gap = game.room_size_goal.padding
 
 	local child1 = vertical and TreeNode(node.x, node.y, node.height, split - gap, node)
